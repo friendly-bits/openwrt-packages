@@ -4,14 +4,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=geoip-shell
-PKG_VERSION:=0.5.2
+PKG_VERSION:=0.6.7
 PKG_RELEASE:=1
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=antonk <antonk.d3v@gmail.com>
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_VERSION:=db8bbf4ce04094843beea1b1aa4fbceb0d35688d
+PKG_SOURCE_VERSION:=$pkg_source_version
 PKG_SOURCE_URL:=https://github.com/friendly-bits/geoip-shell-openwrt.git
-PKG_MIRROR_HASH:=4b0b90a936b8e9b476a0b85bd2100fcc4d1da25cd6929c0bcc282ae7ff137e9f
+PKG_MIRROR_HASH:=skip
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -42,7 +42,7 @@ $(call Package/geoip-shell/Default)
 endef
 
 define Package/geoip-shell/description/Default
-	Flexible geoip blocker with a user-friendly command line interface (currently no LuCi interface).
+	Flexible geoip blocker with a user-friendly command line interface.
 	For readme, please see
 	https://github.com/openwrt/packages/blob/master/net/geoip-shell/OpenWrt-README.md
 endef
@@ -57,10 +57,16 @@ endef
 
 define Package/geoip-shell/postinst/Default
 	#!/bin/sh
-	rm "/usr/bin/geoip-shell" 2>/dev/null
-	ln -s "/usr/bin/geoip-shell-manage.sh" "/usr/bin/geoip-shell"
-	[ -s "/etc/geoip-shell/geoip-shell.conf" ] && /usr/bin/geoip-shell configure -z && exit 0
-	logger -s -t "geoip-shell" "Please run 'geoip-shell configure' to complete the setup."
+	rm -f "/usr/bin/geoip-shell"
+	ln -s "/usr/bin/geoip-shell-manage.sh" "/usr/bin/geoip-shell" ||
+		{ logger -s -t "geoip-shell" -p err "Error: failed to create symlink '/usr/bin/geoip-shell'."; exit 1; }
+	chmod 555 "/usr/bin/geoip-shell" && chown root:root "/usr/bin/geoip-shell" ||
+		logger -s -t "geoip-shell" -p err "Error: failed to set permissions for '/usr/bin/geoip-shell'."
+	if [ -s "/etc/geoip-shell/geoip-shell.conf" ]; then
+		/usr/bin/geoip-shell configure -z
+	else
+		logger -s -t "geoip-shell" "Please run 'geoip-shell configure' to complete the setup."
+	fi
 	exit 0
 endef
 
@@ -111,32 +117,33 @@ endef
 define Package/geoip-shell/install/Default
 
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/etc/init.d/geoip-shell-init $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/etc/init.d/geoip-shell-init $(1)/etc/init.d
 
 	$(INSTALL_DIR) $(1)/etc/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/etc/geoip-shell/cca2.list $(1)/etc/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/etc/geoip-shell/geoip-shell.const $(1)/etc/geoip-shell
+	$(INSTALL_CONF) ./files/etc/geoip-shell/cca2.list $(1)/etc/geoip-shell
+	$(INSTALL_CONF) ./files/etc/geoip-shell/geoip-shell.const $(1)/etc/geoip-shell
+	$(INSTALL_CONF) ./files/etc/geoip-shell/iplist-exclusions.conf $(1)/etc/geoip-shell
 
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-fetch.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-fw-include.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-backup.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-geoinit.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-run.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-mk-fw-include.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-manage.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-apply.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-detect-lan.sh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usr/bin/geoip-shell-cronsetup.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-fetch.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-fw-include.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-backup.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-geoinit.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-run.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-mk-fw-include.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-manage.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-apply.sh $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/geoip-shell-cronsetup.sh $(1)/usr/bin
 
 	$(INSTALL_DIR) $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-status.sh $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-owrt-common.sh $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-common.sh $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-owrt-uninstall.sh $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-arrays.sh $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-setup.sh $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-uninstall.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-status.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-common.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-owrt-uninstall.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-arrays.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-setup.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-ip-tools.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-uninstall.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-owrt.sh $(1)/usr/lib/geoip-shell
 
 endef
 
@@ -144,7 +151,7 @@ endef
 define Package/geoip-shell/install
 $(call Package/geoip-shell/install/Default,$(1))
 	$(INSTALL_DIR) $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-nft.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-nft.sh $(1)/usr/lib/geoip-shell
 
 endef
 
@@ -152,7 +159,7 @@ endef
 define Package/geoip-shell-iptables/install
 $(call Package/geoip-shell/install/Default,$(1))
 	$(INSTALL_DIR) $(1)/usr/lib/geoip-shell
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/usr/lib/geoip-shell/geoip-shell-lib-ipt.sh $(1)/usr/lib/geoip-shell
+	$(INSTALL_CONF) ./files/usr/lib/geoip-shell/geoip-shell-lib-ipt.sh $(1)/usr/lib/geoip-shell
 
 endef
 
